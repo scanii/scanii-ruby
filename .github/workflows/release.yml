@@ -1,0 +1,40 @@
+name: Release
+
+# Triggered by Rafael publishing the GitHub Release (UI or `gh release create`).
+# This workflow does NOT create the release -- it only publishes the gem to
+# RubyGems via OIDC trusted publishing.
+#
+# RubyGems publishes are IRREVERSIBLE. `gem yank` exists but the version number
+# is permanently burned. PR CI is the gate for catching issues before this
+# workflow ever runs.
+#
+# OIDC trusted publishing keys on (org, repo, workflow filename, environment).
+# RubyGems is configured for: scanii / scanii-ruby / release.yml / rubygems.
+# All four must match for the publish step to succeed -- in particular, the
+# `environment: rubygems` line below is required.
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  publish:
+    name: Publish to RubyGems
+    runs-on: ubuntu-latest
+    environment: rubygems
+    permissions:
+      id-token: write   # required for OIDC trusted publishing
+      contents: write   # required for rubygems/release-gem to attach build artifacts to the release
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "4.0"
+          bundler-cache: true
+
+      - name: Publish to RubyGems
+        uses: rubygems/release-gem@v1

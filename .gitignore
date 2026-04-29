@@ -1,0 +1,8 @@
+/.bundle/
+/vendor/
+/pkg/
+/coverage/
+/tmp/
+*.gem
+Gemfile.lock
+.rubocop_todo.yml
