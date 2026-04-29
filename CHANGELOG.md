@@ -2,6 +2,36 @@
 
 All notable changes to `scanii-ruby` are documented here. Versions follow [SemVer](https://semver.org).
 
+## 1.1.0 — Streaming standardization
+
+Adds stream-based `process` and `process_async` methods, aligning scanii-ruby with the
+cross-SDK streaming standard. File content is now truly streamed to the socket via
+`Net::HTTP#body_stream=` rather than buffered into a single String.
+
+### New API
+
+- `Scanii::Client#process(io, filename:, content_type: nil, metadata: nil, callback: nil)` →
+  `Scanii::ProcessingResult` — accepts any IO-like object (anything responding to `read(n)`).
+  Both `File` (opened with `File.open(path, "rb")`) and `StringIO` work.
+- `Scanii::Client#process_file(path, metadata: nil, callback: nil)` →
+  `Scanii::ProcessingResult` — convenience wrapper that opens the file in binary mode and
+  delegates to `process`. This is the replacement for the old `process(path, ...)` form.
+- Same shapes for `process_async` / `process_async_file`.
+
+### Deprecations
+
+- `process(path_string, ...)` — passing a String path to `process` is deprecated; use
+  `process_file(path)` instead. The old form still works and emits a runtime `warn`. Will be
+  removed in a future major version.
+- `process_async(path_string, ...)` — same; use `process_async_file(path)`. Will be removed
+  in a future major version.
+
+### Internals
+
+- `Scanii::Multipart.stream_encode` replaces the old `encode`. Returns a `[ChainedIO,
+  content_type, content_length]` triple. `ChainedIO` reads prologue → caller IO → epilogue
+  without ever buffering the full body.
+
 ## 1.0.1 — Release infrastructure fix
 
 Wires up `bundler/gem_tasks` in the Rakefile so `bundle exec rake release` (invoked by `rubygems/release-gem@v1`) resolves correctly. v1.0.0 was tagged but never published to RubyGems because the release workflow failed at the `rake release` task lookup; v1.0.1 is functionally identical to that tag. No SDK behavior changes.

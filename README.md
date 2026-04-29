@@ -30,12 +30,23 @@ Targets Ruby 3.4+. Zero runtime dependencies.
 
 ## Quickstart
 
+Scan a file from disk:
+
 ```ruby
 require "scanii"
 
 client = Scanii::Client.new(key: "your-key", secret: "your-secret")
 
-result = client.process("./file.pdf")
+result = client.process_file("./file.pdf")
+puts "findings: #{result.findings.inspect}"
+```
+
+Scan content already in memory (no temp file needed):
+
+```ruby
+require "stringio"
+
+result = client.process(StringIO.new(bytes), filename: "upload.bin")
 puts "findings: #{result.findings.inspect}"
 ```
 
@@ -45,8 +56,10 @@ puts "findings: #{result.findings.inspect}"
 
 | Method | REST | Returns |
 |---|---|---|
-| `process(file_path, metadata:, callback:)` | `POST /files` | `Scanii::ProcessingResult` |
-| `process_async(file_path, metadata:, callback:)` | `POST /files/async` | `Scanii::PendingResult` |
+| `process(io, filename:, content_type:, metadata:, callback:)` | `POST /files` | `Scanii::ProcessingResult` |
+| `process_file(path, metadata:, callback:)` | `POST /files` | `Scanii::ProcessingResult` |
+| `process_async(io, filename:, content_type:, metadata:, callback:)` | `POST /files/async` | `Scanii::PendingResult` |
+| `process_async_file(path, metadata:, callback:)` | `POST /files/async` | `Scanii::PendingResult` |
 | `fetch(url, metadata:, callback:)` | `POST /files/fetch` | `Scanii::PendingResult` |
 | `retrieve(id)` | `GET /files/{id}` | `Scanii::ProcessingResult` |
 | `ping` | `GET /ping` | `true` |

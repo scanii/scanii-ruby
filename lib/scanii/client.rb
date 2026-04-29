@@ -13,10 +13,13 @@ module Scanii
   #
   # @see https://scanii.github.io/openapi/v22/
   #
-  # @example
+  # @example Scan a file from disk
   #   client = Scanii::Client.new(key: "your-key", secret: "your-secret")
-  #   result = client.process("./file.pdf")
+  #   result = client.process_file("./file.pdf")
   #   puts result.findings  # [] when clean
+  #
+  # @example Scan content already in memory
+  #   result = client.process(StringIO.new(bytes), filename: "upload.bin")
   class Client
     DEFAULT_ENDPOINT = "https://api.scanii.com".freeze
     DEFAULT_TIMEOUT  = 60
@@ -44,32 +47,109 @@ module Scanii
       @user_agent = user_agent && !user_agent.empty? ? "#{user_agent} #{USER_AGENT}" : USER_AGENT
     end
 
-    # Submit a file for synchronous scanning.
+    # Submit an IO-like object for synchronous scanning.
+    #
+    # +io+ is duck-typed: anything responding to +read(n)+ returning a String.
+    # Both +File+ (opened with +File.open(path, "rb")+) and +StringIO+ work.
+    # The body is streamed to the socket; file content is never fully buffered.
+    #
+    # Passing a String path is deprecated — use {#process_file} instead.
+    #
+    # @overload process(io, filename:, content_type: nil, metadata: nil, callback: nil)
+    #   @param io [#read] IO-like object
+    #   @param filename [String] filename sent in the multipart part
+    #   @param content_type [String, nil] content-type of the file part; guessed from filename when nil
+    #   @param metadata [Hash{String=>String}, nil] arbitrary key/value pairs attached to the result
+    #   @param callback [String, nil] URL to POST the result to on completion
     #
     # @see https://scanii.github.io/openapi/v22/  POST /files
     # @return [Scanii::ProcessingResult]
-    def process(file_path, metadata: nil, callback: nil)
-      assert_readable(file_path)
+    def process(first_arg, filename: nil, content_type: nil, metadata: nil, callback: nil)
+      if first_arg.is_a?(String)
+        # @deprecated Use {#process_file} instead. Will be removed in a future major version.
+        warn "[DEPRECATION] `Scanii::Client#process(path)` is deprecated; " \
+             "use `process_file(path)` instead. Will be removed in a future major version."
+        return process_file(first_arg, metadata: metadata, callback: callback)
+      end
+
+      raise ArgumentError, "io must respond to read" unless first_arg.respond_to?(:read)
+      raise ArgumentError, "filename: is required" if filename.nil? || filename.to_s.empty?
+
       fields = build_text_fields(metadata, callback)
-      body, content_type = Multipart.encode(fields, file_path)
-      status, resp_body, headers = post("/files", body: body, content_type: content_type)
+      stream, ct, length = Multipart.stream_encode(fields, first_arg, filename.to_s, content_type)
+      status, resp_body, headers = post("/files", body_stream: stream, content_type: ct,
+                                                  content_length: length)
       raise_for_status(status, resp_body, headers) unless status == 201
       ProcessingResult.from_response(resp_body, headers)
     end
 
-    # Submit a file for server-side asynchronous scanning. Returns a pending
-    # id; the final result is delivered to +callback+ (when supplied) or
-    # fetched via #retrieve.
+    # Submit a file path for synchronous scanning.
+    #
+    # Opens the file in binary mode, streams it to Scanii, and closes it.
+    # Delegates to {#process} with +filename+ set to the basename.
+    #
+    # @param file_path [String] path to the file to upload
+    # @param metadata [Hash{String=>String}, nil]
+    # @param callback [String, nil]
+    # @see https://scanii.github.io/openapi/v22/  POST /files
+    # @return [Scanii::ProcessingResult]
+    def process_file(file_path, metadata: nil, callback: nil)
+      assert_readable(file_path)
+      File.open(file_path.to_s, "rb") do |f|
+        process(f, filename: File.basename(file_path.to_s), metadata: metadata, callback: callback)
+      end
+    end
+
+    # Submit an IO-like object for server-side asynchronous scanning.
+    #
+    # Returns a pending id; the final result is delivered to +callback+ (when
+    # supplied) or fetched via {#retrieve}.
+    #
+    # Passing a String path is deprecated — use {#process_async_file} instead.
+    #
+    # @overload process_async(io, filename:, content_type: nil, metadata: nil, callback: nil)
+    #   @param io [#read] IO-like object
+    #   @param filename [String] filename sent in the multipart part
+    #   @param content_type [String, nil]
+    #   @param metadata [Hash{String=>String}, nil]
+    #   @param callback [String, nil]
     #
     # @see https://scanii.github.io/openapi/v22/  POST /files/async
     # @return [Scanii::PendingResult]
-    def process_async(file_path, metadata: nil, callback: nil)
-      assert_readable(file_path)
+    def process_async(first_arg, filename: nil, content_type: nil, metadata: nil, callback: nil)
+      if first_arg.is_a?(String)
+        # @deprecated Use {#process_async_file} instead. Will be removed in a future major version.
+        warn "[DEPRECATION] `Scanii::Client#process_async(path)` is deprecated; " \
+             "use `process_async_file(path)` instead. Will be removed in a future major version."
+        return process_async_file(first_arg, metadata: metadata, callback: callback)
+      end
+
+      raise ArgumentError, "io must respond to read" unless first_arg.respond_to?(:read)
+      raise ArgumentError, "filename: is required" if filename.nil? || filename.to_s.empty?
+
       fields = build_text_fields(metadata, callback)
-      body, content_type = Multipart.encode(fields, file_path)
-      status, resp_body, headers = post("/files/async", body: body, content_type: content_type)
+      stream, ct, length = Multipart.stream_encode(fields, first_arg, filename.to_s, content_type)
+      status, resp_body, headers = post("/files/async", body_stream: stream, content_type: ct,
+                                                        content_length: length)
       raise_for_status(status, resp_body, headers) unless status == 202
       PendingResult.from_response(resp_body, headers)
+    end
+
+    # Submit a file path for server-side asynchronous scanning.
+    #
+    # Opens the file in binary mode and delegates to {#process_async}.
+    #
+    # @param file_path [String] path to the file to upload
+    # @param metadata [Hash{String=>String}, nil]
+    # @param callback [String, nil]
+    # @see https://scanii.github.io/openapi/v22/  POST /files/async
+    # @return [Scanii::PendingResult]
+    def process_async_file(file_path, metadata: nil, callback: nil)
+      assert_readable(file_path)
+      File.open(file_path.to_s, "rb") do |f|
+        process_async(f, filename: File.basename(file_path.to_s), metadata: metadata,
+                         callback: callback)
+      end
     end
 
     # Ask Scanii to download a remote URL and scan it asynchronously.
@@ -190,14 +270,16 @@ module Scanii
       fields
     end
 
-    def post(path, body:, content_type:)
-      request("POST", path, body: body, content_type: content_type)
+    def post(path, body: nil, content_type: nil, body_stream: nil, content_length: nil)
+      request("POST", path, body: body, content_type: content_type,
+                            body_stream: body_stream, content_length: content_length)
     end
 
-    def request(method, path, body: nil, content_type: nil)
+    def request(method, path, body: nil, content_type: nil, body_stream: nil, content_length: nil)
       uri = URI.parse("#{@base_uri}#{path}")
 
-      req = build_request(method, uri, body, content_type)
+      req = build_request(method, uri, body: body, content_type: content_type,
+                                       body_stream: body_stream, content_length: content_length)
 
       Net::HTTP.start(uri.hostname, uri.port,
                       use_ssl: uri.scheme == "https",
@@ -211,7 +293,7 @@ module Scanii
       raise Scanii::Error, "transport error: #{e.class}: #{e.message}"
     end
 
-    def build_request(method, uri, body, content_type)
+    def build_request(method, uri, body: nil, content_type: nil, body_stream: nil, content_length: nil)
       klass = case method
               when "GET"    then Net::HTTP::Get
               when "POST"   then Net::HTTP::Post
@@ -224,7 +306,14 @@ module Scanii
       req["User-Agent"]    = @user_agent
       req["Accept"]        = "application/json"
       req["Content-Type"]  = content_type if content_type
-      req.body = body if body
+
+      if body_stream
+        req.body_stream = body_stream
+        req["Content-Length"] = content_length.to_s
+      elsif body
+        req.body = body
+      end
+
       req
     end
 

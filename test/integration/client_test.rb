@@ -2,6 +2,7 @@ require_relative "../test_helper"
 require "tmpdir"
 require "socket"
 require "timeout"
+require "stringio"
 
 # Integration tests must talk to a real local scanii-cli; ensure WebMock (loaded
 # by unit tests in the same process) does not block real HTTP.
@@ -71,9 +72,11 @@ module Scanii
       assert_raises(AuthError) { bad.ping }
     end
 
-    def test_process_clean_file_returns_no_findings
+    # -- process_file (path convenience) -----------------------------------
+
+    def test_process_file_clean_returns_no_findings
       path = temp_file("hello world")
-      result = @client.process(path, metadata: { "source" => "integration", "tag" => "clean" })
+      result = @client.process_file(path, metadata: { "source" => "integration", "tag" => "clean" })
       refute_empty result.id
       assert_empty result.findings
       assert_equal result.id, @client.retrieve(result.id).id
@@ -81,9 +84,9 @@ module Scanii
       cleanup(path)
     end
 
-    def test_process_uuid_fixture_flags_local_malware
+    def test_process_file_uuid_fixture_flags_local_malware
       path = temp_file(LOCAL_MALWARE_UUID)
-      result = @client.process(path)
+      result = @client.process_file(path)
       if result.findings.include?(LOCAL_MALWARE_FINDING)
         assert_includes result.findings, LOCAL_MALWARE_FINDING
       else
@@ -93,9 +96,43 @@ module Scanii
       cleanup(path)
     end
 
-    def test_process_async_returns_pending_then_retrievable
+    # -- process(io, filename:) — in-memory StringIO -----------------------
+
+    def test_process_with_stringio_clean_returns_no_findings
+      io = StringIO.new("hello from stringio")
+      result = @client.process(io, filename: "test.txt", metadata: { "source" => "integration-stringio" })
+      refute_empty result.id
+      assert_empty result.findings
+    end
+
+    def test_process_with_stringio_uuid_fixture_flags_malware
+      io = StringIO.new(LOCAL_MALWARE_UUID)
+      result = @client.process(io, filename: "malware-test.bin")
+      if result.findings.include?(LOCAL_MALWARE_FINDING)
+        assert_includes result.findings, LOCAL_MALWARE_FINDING
+      else
+        skip "scanii-cli did not flag the UUID fixture (older build); got: #{result.findings.inspect}"
+      end
+    end
+
+    # -- process(io, filename:) — disk File IO -----------------------------
+
+    def test_process_with_file_io_clean_returns_no_findings
+      path = temp_file("hello from file io")
+      result = File.open(path, "rb") do |f|
+        @client.process(f, filename: File.basename(path))
+      end
+      refute_empty result.id
+      assert_empty result.findings
+    ensure
+      cleanup(path)
+    end
+
+    # -- process_async_file ------------------------------------------------
+
+    def test_process_async_file_returns_pending_then_retrievable
       path = temp_file("hello async")
-      pending = @client.process_async(path)
+      pending = @client.process_async_file(path)
       refute_empty pending.id
       sleep 0.5
       assert_equal pending.id, @client.retrieve(pending.id).id
@@ -103,10 +140,36 @@ module Scanii
       cleanup(path)
     end
 
+    # -- process_async(io, filename:) — StringIO ---------------------------
+
+    def test_process_async_with_stringio_returns_pending
+      io = StringIO.new("hello async stringio")
+      pending = @client.process_async(io, filename: "async-test.bin")
+      refute_empty pending.id
+    end
+
+    # -- deprecated process(path) alias ------------------------------------
+
+    def test_process_deprecated_path_still_works_and_warns
+      path = temp_file("deprecated path test")
+      _out, err = capture_io do
+        result = @client.process(path)
+        refute_empty result.id
+      end
+      assert_match(/deprecated/, err)
+      assert_match(/process_file/, err)
+    ensure
+      cleanup(path)
+    end
+
+    # -- fetch --------------------------------------------------------------
+
     def test_fetch_returns_pending_result
       r = @client.fetch("https://example.com/test.txt")
       refute_empty r.id
     end
+
+    # -- auth token lifecycle -----------------------------------------------
 
     def test_auth_token_lifecycle
       tok = @client.create_auth_token(30)
@@ -150,7 +213,7 @@ module Scanii
       end
 
       path = temp_file("hello callback")
-      @client.process(path, callback: "http://127.0.0.1:#{port}/cb")
+      @client.process_file(path, callback: "http://127.0.0.1:#{port}/cb")
 
       thread.join
 
