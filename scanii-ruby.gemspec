@@ -8,7 +8,7 @@ Gem::Specification.new do |spec|
   spec.description   = "Ruby client for Scanii (scanii.com). Stdlib only -- no runtime dependencies."
   spec.homepage      = "https://github.com/scanii/scanii-ruby"
   spec.license       = "Apache-2.0"
-  spec.required_ruby_version = ">= 3.4.0"
+  spec.required_ruby_version = ">= 3.5.0"
 
   spec.metadata = {
     "homepage_uri" => "https://scanii.com",
