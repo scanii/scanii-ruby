@@ -1,0 +1,39 @@
+name: PR
+
+on: pull_request
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Ruby ${{ matrix.ruby }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        ruby: ["3.4", "3.5"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby }}
+          bundler-cache: true
+
+      - name: Setup scanii-cli
+        uses: scanii/setup-cli-action@v1
+
+      - name: Run tests
+        run: bundle exec rake test
+        env:
+          SCANII_TEST_ENDPOINT: http://localhost:4000
+
+      - name: RuboCop
+        run: bundle exec rubocop
+
+      - name: Build gem
+        run: gem build scanii-ruby.gemspec

@@ -1,0 +1,71 @@
+AllCops:
+  TargetRubyVersion: 3.4
+  NewCops: enable
+  SuggestExtensions: false
+  Exclude:
+    - "vendor/**/*"
+    - "pkg/**/*"
+    - "tmp/**/*"
+
+# Test method names like test_ping_returns_true_on_200 are conventional.
+Naming/VariableNumber:
+  Exclude:
+    - "test/**/*"
+
+# Gemspec keeps dev deps so `gem build` produces a self-contained spec
+# (see scanii-ruby.gemspec). Bundler resolves them via `gemspec` in Gemfile.
+Gemspec/DevelopmentDependencies:
+  EnforcedStyle: gemspec
+
+# Plain Ruby data classes legitimately need a kwarg per JSON field.
+Metrics/ParameterLists:
+  Max: 12
+  CountKeywordArgs: false
+
+Metrics/CyclomaticComplexity:
+  Max: 12
+
+# delete_auth_token returns true on success / raises otherwise -- it's a
+# command, not a predicate.
+Naming/PredicateMethod:
+  Enabled: false
+
+# Pragmatic settings for an SDK.
+Style/Documentation:
+  Enabled: false
+
+Style/StringLiterals:
+  EnforcedStyle: double_quotes
+
+Style/StringLiteralsInInterpolation:
+  EnforcedStyle: double_quotes
+
+Style/FrozenStringLiteralComment:
+  Enabled: false
+
+Metrics/MethodLength:
+  Max: 40
+
+Metrics/ClassLength:
+  Max: 250
+
+Metrics/AbcSize:
+  Max: 30
+
+Metrics/PerceivedComplexity:
+  Max: 12
+
+Metrics/BlockLength:
+  Exclude:
+    - "test/**/*"
+    - "*.gemspec"
+
+Layout/LineLength:
+  Max: 120
+
+Naming/FileName:
+  Exclude:
+    - "lib/scanii-ruby.rb"
+
+Gemspec/RequireMFA:
+  Enabled: true
