@@ -1,6 +1,7 @@
 require_relative "../test_helper"
 require "webmock/minitest"
 require "tmpdir"
+require "stringio"
 
 module Scanii
   class ClientUnitTest < Minitest::Test
@@ -116,9 +117,68 @@ module Scanii
       assert_equal "req-123", err.request_id
     end
 
-    # -- process / multipart -----------------------------------------------
+    # -- process(io, filename:) — stream-based canonical method --------
 
-    def test_process_returns_processing_result
+    def test_process_with_stringio_returns_processing_result
+      io = StringIO.new("hello world")
+      response_body = JSON.generate(
+        "id" => "abc",
+        "findings" => [],
+        "checksum" => "sha1",
+        "content_length" => 11,
+        "content_type" => "text/plain",
+        "metadata" => { "source" => "unit" },
+        "creation_date" => "2026-04-29T00:00:00Z"
+      )
+      stub_request(:post, "#{BASE}/files").to_return(
+        status: 201,
+        body: response_body,
+        headers: { "X-Scanii-Request-Id" => "req-1", "Location" => "/v2.2/files/abc" }
+      )
+      result = @client.process(io, filename: "hello.txt", metadata: { "source" => "unit" })
+      assert_kind_of ProcessingResult, result
+      assert_equal "abc", result.id
+      assert_equal [], result.findings
+      assert_equal 11, result.content_length
+      assert_equal "req-1", result.request_id
+      assert_equal "/v2.2/files/abc", result.resource_location
+    end
+
+    def test_process_with_file_io_sends_correct_body
+      file = make_temp_file("hello mp")
+      stub = stub_request(:post, "#{BASE}/files")
+             .with do |req|
+               ct = req.headers["Content-Type"]
+               body = req.body
+               ct.start_with?("multipart/form-data; boundary=") &&
+                 body.include?("hello mp") &&
+                 body.include?(%(name="metadata[source]")) &&
+                 body.include?(%(name="callback")) &&
+                 body.include?("https://cb.example/x") &&
+                 body.include?(%(name="file"; filename=))
+             end
+             .to_return(status: 201, body: '{"id":"abc","findings":[]}')
+      File.open(file, "rb") do |f|
+        @client.process(f, filename: File.basename(file),
+                           metadata: { "source" => "u" }, callback: "https://cb.example/x")
+      end
+      assert_requested(stub)
+    ensure
+      File.unlink(file) if file && File.exist?(file)
+    end
+
+    def test_process_requires_filename_keyword
+      io = StringIO.new("data")
+      assert_raises(ArgumentError) { @client.process(io) }
+    end
+
+    def test_process_raises_for_non_io_non_string
+      assert_raises(ArgumentError) { @client.process(42, filename: "f.bin") }
+    end
+
+    # -- process_file — path convenience -----------------------------------
+
+    def test_process_file_returns_processing_result
       file = make_temp_file("hello world")
       response_body = JSON.generate(
         "id" => "abc",
@@ -134,18 +194,15 @@ module Scanii
         body: response_body,
         headers: { "X-Scanii-Request-Id" => "req-1", "Location" => "/v2.2/files/abc" }
       )
-      result = @client.process(file, metadata: { "source" => "unit" })
+      result = @client.process_file(file, metadata: { "source" => "unit" })
       assert_kind_of ProcessingResult, result
       assert_equal "abc", result.id
       assert_equal [], result.findings
-      assert_equal 11, result.content_length
-      assert_equal "req-1", result.request_id
-      assert_equal "/v2.2/files/abc", result.resource_location
     ensure
       File.unlink(file) if file && File.exist?(file)
     end
 
-    def test_process_sends_multipart_body_with_file_and_metadata
+    def test_process_file_sends_multipart_body
       file = make_temp_file("hello mp")
       stub = stub_request(:post, "#{BASE}/files")
              .with do |req|
@@ -159,20 +216,66 @@ module Scanii
                  body.include?(%(name="file"; filename=))
              end
              .to_return(status: 201, body: '{"id":"abc","findings":[]}')
-      @client.process(file, metadata: { "source" => "u" }, callback: "https://cb.example/x")
+      @client.process_file(file, metadata: { "source" => "u" }, callback: "https://cb.example/x")
       assert_requested(stub)
     ensure
       File.unlink(file) if file && File.exist?(file)
     end
 
-    def test_process_async_expects_202
+    def test_process_file_raises_for_unreadable_path
+      assert_raises(ArgumentError) { @client.process_file("/no/such/file/scanii-ruby-unit-test.bin") }
+    end
+
+    # -- deprecated process(path) alias ------------------------------------
+
+    def test_process_path_deprecated_still_works
+      file = make_temp_file("hello deprecation")
+      stub_request(:post, "#{BASE}/files").to_return(
+        status: 201,
+        body: '{"id":"dep","findings":[]}'
+      )
+      _out, err = capture_io { @client.process(file) }
+      assert_match(/deprecated/, err)
+      assert_match(/process_file/, err)
+      assert_match(/future major version/, err)
+    ensure
+      File.unlink(file) if file && File.exist?(file)
+    end
+
+    def test_process_path_deprecated_passes_metadata_and_callback
+      file = make_temp_file("meta test")
+      stub = stub_request(:post, "#{BASE}/files")
+             .with { |req| req.body.include?(%(name="metadata[k]")) && req.body.include?("v") }
+             .to_return(status: 201, body: '{"id":"x","findings":[]}')
+      capture_io { @client.process(file, metadata: { "k" => "v" }) }
+      assert_requested(stub)
+    ensure
+      File.unlink(file) if file && File.exist?(file)
+    end
+
+    # -- process_async(io, filename:) / process_async_file -----------------
+
+    def test_process_async_with_stringio_expects_202
+      io = StringIO.new("async content")
+      stub_request(:post, "#{BASE}/files/async").to_return(
+        status: 202,
+        body: '{"id":"pending-1"}',
+        headers: { "Location" => "/v2.2/files/pending-1" }
+      )
+      r = @client.process_async(io, filename: "async.bin")
+      assert_kind_of PendingResult, r
+      assert_equal "pending-1", r.id
+      assert_equal "/v2.2/files/pending-1", r.resource_location
+    end
+
+    def test_process_async_file_expects_202
       file = make_temp_file("async")
       stub_request(:post, "#{BASE}/files/async").to_return(
         status: 202,
         body: '{"id":"pending-1"}',
         headers: { "Location" => "/v2.2/files/pending-1" }
       )
-      r = @client.process_async(file)
+      r = @client.process_async_file(file)
       assert_kind_of PendingResult, r
       assert_equal "pending-1", r.id
       assert_equal "/v2.2/files/pending-1", r.resource_location
@@ -180,8 +283,19 @@ module Scanii
       File.unlink(file) if file && File.exist?(file)
     end
 
-    def test_process_raises_for_unreadable_path
-      assert_raises(ArgumentError) { @client.process("/no/such/file/scanii-ruby-unit-test.bin") }
+    def test_process_async_path_deprecated_emits_warning
+      file = make_temp_file("async dep")
+      stub_request(:post, "#{BASE}/files/async").to_return(
+        status: 202,
+        body: '{"id":"x"}',
+        headers: { "Location" => "/v2.2/files/x" }
+      )
+      _out, err = capture_io { @client.process_async(file) }
+      assert_match(/deprecated/, err)
+      assert_match(/process_async_file/, err)
+      assert_match(/future major version/, err)
+    ensure
+      File.unlink(file) if file && File.exist?(file)
     end
 
     # -- fetch --------------------------------------------------------------
@@ -287,26 +401,46 @@ module Scanii
       WebMock.enable! if defined?(WebMock)
     end
 
-    def test_encode_emits_well_formed_body
-      path = File.join(Dir.tmpdir, "scanii-ruby-mp-#{Process.pid}-#{rand(1 << 32)}.txt")
-      File.binwrite(path, "hello world")
-      body, ct = Multipart.encode({ "metadata[source]" => "unit" }, path)
+    def test_stream_encode_emits_well_formed_body
+      io = StringIO.new("hello world")
+      chained, ct, length = Multipart.stream_encode({ "metadata[source]" => "unit" }, io, "test.txt")
+      body = chained.read
       assert_match(%r{\Amultipart/form-data; boundary=----scanii-ruby-boundary-}, ct)
       assert_includes body, %(name="metadata[source]")
       assert_includes body, %(name="file"; filename=)
       assert_includes body, "hello world"
       assert body.end_with?("--\r\n"), "expected closing boundary terminator"
-    ensure
-      File.unlink(path) if path && File.exist?(path)
+      assert_equal length, body.bytesize
     end
 
-    def test_encode_handles_binary_content
-      path = File.join(Dir.tmpdir, "scanii-ruby-mp-bin-#{Process.pid}-#{rand(1 << 32)}.bin")
+    def test_stream_encode_handles_binary_content
       bytes = (0..255).to_a.pack("C*")
-      File.binwrite(path, bytes)
-      body, = Multipart.encode({}, path)
+      io = StringIO.new(bytes)
+      chained, = Multipart.stream_encode({}, io, "binary.bin")
+      body = chained.read
       assert_equal Encoding::BINARY, body.encoding
       assert_includes body, bytes
+    end
+
+    def test_stream_encode_content_length_matches_actual_body
+      io = StringIO.new("measure me")
+      _, _, length = Multipart.stream_encode({}, io, "measure.txt")
+      # Re-create to read from the start
+      io2 = StringIO.new("measure me")
+      chained2, = Multipart.stream_encode({}, io2, "measure.txt")
+      assert_equal length, chained2.read.bytesize
+    end
+
+    def test_stream_encode_file_io
+      path = File.join(Dir.tmpdir, "scanii-ruby-mp-#{Process.pid}-#{rand(1 << 32)}.txt")
+      File.binwrite(path, "hello world")
+      File.open(path, "rb") do |f|
+        chained, ct, length = Multipart.stream_encode({ "metadata[source]" => "unit" }, f, "test.txt")
+        body = chained.read
+        assert_match(%r{\Amultipart/form-data; boundary=----scanii-ruby-boundary-}, ct)
+        assert_includes body, "hello world"
+        assert_equal length, body.bytesize
+      end
     ensure
       File.unlink(path) if path && File.exist?(path)
     end
