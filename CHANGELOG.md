@@ -26,6 +26,6 @@ Errors: `Scanii::Error` (base), `Scanii::AuthError` (401/403), `Scanii::RateLimi
 - **Zero runtime dependencies.** Stdlib `net/http` + `json` + `securerandom` + `base64` only.
 - **Hand-rolled multipart/form-data encoder** (no `multipart-post`, no `rack-mime`).
 - **Synchronous.** Single-threaded by default; create one `Scanii::Client` per thread.
-- **Targets Ruby 3.5+.**
-- **scanii-cli** integration tests cover Linux / macOS / Windows on Ruby 3.5 and 4.0 without burning real Scanii credits.
+- **Targets Ruby 3.4+.**
+- **scanii-cli** integration tests cover Linux / macOS / Windows on Ruby 3.5 and 4.0 (current + previous stable) without burning real Scanii credits.
 - **OIDC trusted publishing** to RubyGems via `rubygems/release-gem` — no long-lived API key in repo secrets.

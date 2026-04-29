@@ -26,7 +26,7 @@ Or install directly:
 gem install scanii-ruby
 ```
 
-Targets Ruby 3.5+. Zero runtime dependencies.
+Targets Ruby 3.4+. Zero runtime dependencies.
 
 ## Quickstart
 
