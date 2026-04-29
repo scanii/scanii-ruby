@@ -2,6 +2,10 @@
 
 All notable changes to `scanii-ruby` are documented here. Versions follow [SemVer](https://semver.org).
 
+## 1.0.1 — Release infrastructure fix
+
+Wires up `bundler/gem_tasks` in the Rakefile so `bundle exec rake release` (invoked by `rubygems/release-gem@v1`) resolves correctly. v1.0.0 was tagged but never published to RubyGems because the release workflow failed at the `rake release` task lookup; v1.0.1 is functionally identical to that tag. No SDK behavior changes.
+
 ## 1.0.0 — Initial release
 
 First public release of the Scanii Ruby SDK on RubyGems as `scanii-ruby` (the plain `scanii` gem name is held by an abandoned third-party gem; this SDK uses the `scanii-ruby` convention matching `twilio-ruby`). Supersedes the `scanii-ruby 0.0.1` namespace-reservation placeholder.
