@@ -60,8 +60,10 @@ puts "findings: #{result.findings.inspect}"
 | `process_file(path, metadata:, callback:)` | `POST /files` | `Scanii::ProcessingResult` |
 | `process_async(io, filename:, content_type:, metadata:, callback:)` | `POST /files/async` | `Scanii::PendingResult` |
 | `process_async_file(path, metadata:, callback:)` | `POST /files/async` | `Scanii::PendingResult` |
+| `process_from_url(location, callback:, metadata:)` | `POST /files` | `Scanii::ProcessingResult` (v2.2 preview) |
 | `fetch(url, metadata:, callback:)` | `POST /files/fetch` | `Scanii::PendingResult` |
 | `retrieve(id)` | `GET /files/{id}` | `Scanii::ProcessingResult` |
+| `retrieve_trace(id)` | `GET /files/{id}/trace` | `Scanii::TraceResult` or `nil` (v2.2 preview) |
 | `ping` | `GET /ping` | `true` |
 | `create_auth_token(timeout_seconds)` | `POST /auth/tokens` | `Scanii::AuthToken` |
 | `retrieve_auth_token(id)` | `GET /auth/tokens/{id}` | `Scanii::AuthToken` |

@@ -2,6 +2,29 @@
 
 All notable changes to `scanii-ruby` are documented here. Versions follow [SemVer](https://semver.org).
 
+## [1.2.0] — v2.2 surface
+
+### New API
+
+- `Scanii::Client#retrieve_trace(id)` → `Scanii::TraceResult` or `nil` — retrieves the
+  ordered processing event trace for a scan via `GET /files/{id}/trace`. Returns `nil` on 404
+  (no trace for that id). v2.2 preview surface; API shape may shift before marked stable.
+- `Scanii::Client#process_from_url(location, callback: nil, metadata: nil)` →
+  `Scanii::ProcessingResult` — submits a URL for synchronous scanning via `POST /files` with
+  `location` as a multipart/form-data field. Distinct from `fetch`, which submits to
+  `/files/fetch` for asynchronous server-side fetching. `location` must be a String URL.
+  v2.2 preview surface.
+- `Scanii::TraceResult` — new result class with `id`, `events`, `request_id`, `host_id`,
+  `raw_response`.
+- `Scanii::TraceEvent` — new model with `timestamp` (String) and `message` (String).
+
+### Deprecations
+
+- `Scanii::ProcessingResult#error` — deprecated. The server never populates this field on
+  successful responses; errors arrive as non-2xx HTTP responses that raise `Scanii::Error`
+  subclasses. The field still exists and emits a runtime `warn` on access. Will be removed
+  in a future major version.
+
 ## 1.1.0 — Streaming standardization
 
 Adds stream-based `process` and `process_async` methods, aligning scanii-ruby with the
