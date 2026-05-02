@@ -9,7 +9,7 @@ module Scanii
   # @see https://scanii.github.io/openapi/v22/
   class ProcessingResult
     attr_reader :id, :findings, :checksum, :content_length, :content_type,
-                :metadata, :creation_date, :error,
+                :metadata, :creation_date,
                 :request_id, :host_id, :resource_location, :raw_response
 
     def initialize(id:, findings:, checksum:, content_length:, content_type:,
@@ -22,11 +22,21 @@ module Scanii
       @content_type      = content_type
       @metadata          = metadata
       @creation_date     = creation_date
-      @error             = error
+      @_error            = error
       @request_id        = request_id
       @host_id           = host_id
       @resource_location = resource_location
       @raw_response      = raw_response
+    end
+
+    # @deprecated The server never populates this field on successful responses;
+    #   errors arrive as non-2xx HTTP responses that raise Scanii::Error
+    #   subclasses. Will be removed in a future major version.
+    def error
+      warn "[DEPRECATION] `Scanii::ProcessingResult#error` is deprecated; " \
+           "rescue Scanii::Error (and its subclasses) to handle server-side errors. " \
+           "Will be removed in a future major version."
+      @_error
     end
 
     def self.from_response(body, headers)

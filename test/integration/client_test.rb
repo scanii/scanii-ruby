@@ -162,6 +162,36 @@ module Scanii
       cleanup(path)
     end
 
+    # -- retrieve_trace (v2.2 preview) -------------------------------------
+
+    def test_retrieve_trace_returns_non_empty_events_for_known_id
+      path = temp_file(LOCAL_MALWARE_UUID)
+      result = @client.process_file(path)
+      trace = @client.retrieve_trace(result.id)
+      refute_nil trace, "retrieve_trace must return a TraceResult for a known id"
+      assert_kind_of Scanii::TraceResult, trace
+      refute_empty trace.events, "events array must be non-empty for a known processing id"
+      assert(trace.events.all?(Scanii::TraceEvent))
+    ensure
+      cleanup(path)
+    end
+
+    def test_retrieve_trace_returns_nil_for_unknown_id
+      result = @client.retrieve_trace("does-not-exist-trace-#{Process.pid}")
+      assert_nil result
+    end
+
+    # -- process_from_url (v2.2 preview) -----------------------------------
+
+    def test_process_from_url_returns_result_with_eicar_finding
+      url = "#{self.class.endpoint}/static/eicar.txt"
+      result = @client.process_from_url(url)
+      refute_nil result, "process_from_url must return a ProcessingResult"
+      assert_kind_of Scanii::ProcessingResult, result
+      assert_includes result.findings, "content.malicious.eicar-test-signature",
+                      "expected EICAR finding; got: #{result.findings.inspect}"
+    end
+
     # -- fetch --------------------------------------------------------------
 
     def test_fetch_returns_pending_result

@@ -184,6 +184,70 @@ module Scanii
       ProcessingResult.from_response(resp_body, headers)
     end
 
+    # Retrieve the processing event trace for a previously submitted scan.
+    #
+    # Returns nil when no trace exists for the given id (HTTP 404).
+    #
+    # This is a v2.2 preview surface; the API shape may shift before it is
+    # marked stable.
+    #
+    # @param id [String] processing id returned by process or process_file
+    # @see https://scanii.github.io/openapi/v22/  GET /files/{id}/trace
+    # @return [Scanii::TraceResult, nil]
+    def retrieve_trace(id)
+      raise ArgumentError, "id must not be empty" if id.nil? || id.empty?
+
+      status, resp_body, headers = request("GET", "/files/#{url_encode(id)}/trace")
+      return nil if status == 404
+
+      raise_for_status(status, resp_body, headers) unless status == 200
+      TraceResult.from_response(resp_body, headers)
+    end
+
+    # Submit a remote URL for synchronous scanning.
+    #
+    # Sends the URL as a +location+ field in a multipart/form-data POST to
+    # +/files+. The Scanii server fetches and scans the URL synchronously and
+    # returns a ProcessingResult. This is distinct from {#fetch}, which submits
+    # to +/files/fetch+ for asynchronous server-side fetching.
+    #
+    # +location+ must be a String URL. This matches the existing {#fetch}
+    # String-URL convention and the Java reference (processFromUrl(String)).
+    #
+    # This is a v2.2 preview surface; the API shape may shift before it is
+    # marked stable.
+    #
+    # @param location [String] URL of the content to scan
+    # @param callback [String, nil] URL to POST the result to on completion
+    # @param metadata [Hash{String=>String}, nil] arbitrary key/value pairs attached to the result
+    # @see https://scanii.github.io/openapi/v22/  POST /files
+    # @return [Scanii::ProcessingResult]
+    def process_from_url(location, callback: nil, metadata: nil)
+      raise ArgumentError, "location must not be empty" if location.nil? || location.to_s.empty?
+
+      fields = build_text_fields(metadata, callback)
+      fields["location"] = location.to_s
+
+      boundary = Multipart.make_boundary
+      body = String.new(encoding: Encoding::BINARY)
+      fields.each do |name, value|
+        body << "--#{boundary}\r\n".b
+        body << "Content-Disposition: form-data; name=\"#{name}\"\r\n".b
+        body << "Content-Type: text/plain; charset=UTF-8\r\n\r\n".b
+        body << value.to_s.b
+        body << "\r\n".b
+      end
+      body << "--#{boundary}--\r\n".b
+
+      status, resp_body, headers = post(
+        "/files",
+        body: body,
+        content_type: Multipart.make_content_type(boundary)
+      )
+      raise_for_status(status, resp_body, headers) unless status == 201
+      ProcessingResult.from_response(resp_body, headers)
+    end
+
     # Verify that the configured credentials reach the API.
     #
     # @see https://scanii.github.io/openapi/v22/  GET /ping
