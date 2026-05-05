@@ -4,12 +4,19 @@ All notable changes to `scanii-ruby` are documented here. Versions follow [SemVe
 
 ## [1.3.0] — deprecate AUTO endpoint
 
+### Added
+
+- `Scanii::Target` — typed regional endpoint class with constants `Scanii::Target::US1`,
+  `EU1`, `EU2`, `AP1`, `AP2`, `CA1`. Pass to `Scanii::Client.new(endpoint:)` instead of a
+  bare URL string for ergonomics and IDE autocomplete. The `endpoint:` keyword still accepts
+  bare URL strings (e.g. for scanii-cli), so this is purely additive.
+
 ### Deprecated
 
 - Default `endpoint:` parameter (`https://api.scanii.com`) — latency-based routing does not
   guarantee which region processes your data. Pass an explicit regional endpoint
-  (`https://api-us1.scanii.com`, `https://api-eu1.scanii.com`, etc.) for data residency
-  compliance. Constructing a client without an explicit endpoint now emits a `warn` message.
+  (`Scanii::Target::US1`, `Scanii::Target::EU1`, etc.) for data residency compliance.
+  Constructing a client without an explicit endpoint now emits a `warn` message.
   Will be removed in a future major version.
 
 ## [1.2.0] — v2.2 surface

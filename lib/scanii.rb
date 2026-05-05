@@ -1,5 +1,6 @@
 require_relative "scanii/version"
 require_relative "scanii/error"
+require_relative "scanii/target"
 require_relative "scanii/processing_result"
 require_relative "scanii/pending_result"
 require_relative "scanii/auth_token"
