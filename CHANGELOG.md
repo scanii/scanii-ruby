@@ -2,6 +2,16 @@
 
 All notable changes to `scanii-ruby` are documented here. Versions follow [SemVer](https://semver.org).
 
+## [1.3.0] — deprecate AUTO endpoint
+
+### Deprecated
+
+- Default `endpoint:` parameter (`https://api.scanii.com`) — latency-based routing does not
+  guarantee which region processes your data. Pass an explicit regional endpoint
+  (`https://api-us1.scanii.com`, `https://api-eu1.scanii.com`, etc.) for data residency
+  compliance. Constructing a client without an explicit endpoint now emits a `warn` message.
+  Will be removed in a future major version.
+
 ## [1.2.0] — v2.2 surface
 
 ### New API
