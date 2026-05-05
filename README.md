@@ -35,7 +35,7 @@ Scan a file from disk:
 ```ruby
 require "scanii"
 
-client = Scanii::Client.new(key: "your-key", secret: "your-secret")
+client = Scanii::Client.new(key: "your-key", secret: "your-secret", endpoint: Scanii::Target::US1)
 
 result = client.process_file("./file.pdf")
 puts "findings: #{result.findings.inspect}"
@@ -77,19 +77,21 @@ Full API reference: <https://scanii.github.io/openapi/v22/>.
 client = Scanii::Client.new(
   key: "k",
   secret: "s",
-  endpoint: "https://api-eu1.scanii.com"
+  endpoint: Scanii::Target::EU1
 )
 ```
 
-| Region | Endpoint |
+The `endpoint:` keyword accepts either a `Scanii::Target` constant or a bare URL String (useful for scanii-cli, e.g. `endpoint: "http://localhost:4000"`).
+
+| Constant | Endpoint |
 |---|---|
-| Auto (default) | `https://api.scanii.com` |
-| US 1 | `https://api-us1.scanii.com` |
-| EU 1 | `https://api-eu1.scanii.com` |
-| EU 2 | `https://api-eu2.scanii.com` |
-| AP 1 | `https://api-ap1.scanii.com` |
-| AP 2 | `https://api-ap2.scanii.com` |
-| CA 1 | `https://api-ca1.scanii.com` |
+| `Scanii::Target::US1` | `https://api-us1.scanii.com` |
+| `Scanii::Target::EU1` | `https://api-eu1.scanii.com` |
+| `Scanii::Target::EU2` | `https://api-eu2.scanii.com` |
+| `Scanii::Target::AP1` | `https://api-ap1.scanii.com` |
+| `Scanii::Target::AP2` | `https://api-ap2.scanii.com` |
+| `Scanii::Target::CA1` | `https://api-ca1.scanii.com` |
+| ~~Auto (default)~~ | ~~`https://api.scanii.com`~~ — **deprecated**, does not guarantee regional data placement |
 
 ## Errors
 
@@ -120,10 +122,10 @@ Per SDK Principle 3, the SDK does not retry on the caller's behalf — backoff a
 Mint a short-lived token server-side and authenticate with it from a less-trusted client:
 
 ```ruby
-server_client = Scanii::Client.new(key: "k", secret: "s")
+server_client = Scanii::Client.new(key: "k", secret: "s", endpoint: Scanii::Target::US1)
 token = server_client.create_auth_token(300)
 
-token_client = Scanii::Client.new(token: token.id)
+token_client = Scanii::Client.new(token: token.id, endpoint: Scanii::Target::US1)
 token_client.ping
 ```
 

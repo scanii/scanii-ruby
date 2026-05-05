@@ -31,11 +31,25 @@ module Scanii
     # @param key [String, nil] API key (mutually exclusive with token)
     # @param secret [String, nil] API secret (required when key is set)
     # @param token [String, nil] auth-token id (mutually exclusive with key/secret)
-    # @param endpoint [String] base URL; defaults to https://api.scanii.com
+    # @param endpoint [Scanii::Target, String] base URL or {Scanii::Target} constant;
+    #   defaults to https://api.scanii.com (deprecated)
+    #   @deprecated The default endpoint (https://api.scanii.com) uses latency-based routing
+    #     and does not guarantee which region processes your data. Pass an explicit regional
+    #     endpoint for data residency compliance: {Scanii::Target::US1}, {Scanii::Target::EU1},
+    #     {Scanii::Target::EU2}, {Scanii::Target::AP1}, {Scanii::Target::AP2},
+    #     {Scanii::Target::CA1}. A bare URL String is also accepted (e.g. for scanii-cli).
+    #     Will be removed in a future major version.
     # @param timeout [Integer] open + read timeout in seconds; default 60
     # @param user_agent [String, nil] optional fragment prepended to the SDK's default User-Agent
     def initialize(key: nil, secret: nil, token: nil, endpoint: DEFAULT_ENDPOINT,
                    timeout: DEFAULT_TIMEOUT, user_agent: nil)
+      if endpoint == DEFAULT_ENDPOINT
+        warn "[scanii] DEPRECATION: No explicit endpoint set; defaulting to " \
+             "#{DEFAULT_ENDPOINT} (AUTO routing). This does not guarantee regional data " \
+             "placement. Pass an explicit regional endpoint (e.g. Scanii::Target::US1) " \
+             "for data residency compliance. The AUTO default will be removed in a " \
+             "future major version."
+      end
       @auth_header = build_auth_header(key, secret, token)
       @endpoint    = endpoint.to_s.sub(%r{/+\z}, "")
       raise ArgumentError, "endpoint must not be empty" if @endpoint.empty?
