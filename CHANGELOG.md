@@ -2,6 +2,14 @@
 
 All notable changes to `scanii-ruby` are documented here. Versions follow [SemVer](https://semver.org).
 
+## [1.3.1] — dependency refresh
+
+### Changed
+
+- Bumped CI action: `actions/checkout` v4 → v7 (pr.yml and release.yml).
+  (Dev dependencies float within gemspec `~>` ranges at install time — `Gemfile.lock`
+  is intentionally not committed; the gem has zero runtime dependencies and is unchanged.)
+
 ## [1.3.0] — deprecate AUTO endpoint
 
 ### Added
