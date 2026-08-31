@@ -20,6 +20,14 @@ All notable changes to `scanii-ruby` are documented here. Versions follow [SemVe
   in the README and RDoc. Neither is marked preview in the API contract; the methods
   themselves are unchanged.
 
+### Fixed
+
+- Path segments are now encoded with `URI.encode_uri_component` rather than
+  `URI.encode_www_form_component`, which rendered a space as `+`. Inside a path a
+  `+` is a literal plus, so an id containing a space reached the server corrupted.
+  Affects every id-taking method. Scanii-issued ids are hex, so this was not
+  reachable in practice with server-generated ids.
+
 ## [1.3.1] — dependency refresh
 
 ### Changed

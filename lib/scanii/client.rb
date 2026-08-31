@@ -460,8 +460,11 @@ module Scanii
       body
     end
 
+    # Path-segment encoding. NOT encode_www_form_component, which renders a
+    # space as "+" — correct for form bodies, wrong inside a path, where "+"
+    # is a literal plus and the id would arrive corrupted.
     def url_encode(value)
-      URI.encode_www_form_component(value)
+      URI.encode_uri_component(value)
     end
   end
 end

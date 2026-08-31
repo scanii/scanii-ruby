@@ -387,6 +387,12 @@ module Scanii
       assert_requested(stub)
     end
 
+    def test_delete_url_encodes_the_id
+      stub = stub_request(:delete, "#{BASE}/files/a%20b%2Fc").to_return(status: 204)
+      @client.delete("a b/c")
+      assert_requested(stub)
+    end
+
     def test_delete_404_raises_scanii_error
       stub_request(:delete, "#{BASE}/files/missing")
         .to_return(status: 404, body: { error: "not found" }.to_json)
