@@ -3,9 +3,6 @@ require "json"
 module Scanii
   # Result of Client#retrieve_trace — ordered processing events for a scan.
   #
-  # This is a v2.2 preview surface; the API shape may shift before it is
-  # marked stable.
-  #
   # @see https://scanii.github.io/openapi/v22/
   class TraceResult
     attr_reader :id, :events, :request_id, :host_id, :raw_response

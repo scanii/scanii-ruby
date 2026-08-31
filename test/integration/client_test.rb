@@ -162,7 +162,7 @@ module Scanii
       cleanup(path)
     end
 
-    # -- retrieve_trace (v2.2 preview) -------------------------------------
+    # -- retrieve_trace ----------------------------------------------------
 
     def test_retrieve_trace_returns_non_empty_events_for_known_id
       path = temp_file(LOCAL_MALWARE_UUID)
@@ -181,7 +181,61 @@ module Scanii
       assert_nil result
     end
 
-    # -- process_from_url (v2.2 preview) -----------------------------------
+    # -- delete / delete_trace ---------------------------------------------
+    #
+    # The result and the trace are independent resources: deleting one must
+    # leave the other readable. That split is the whole point, so these
+    # assertions are deliberately strict (new surface, no self-skip).
+
+    def test_delete_removes_result_and_leaves_trace
+      path = temp_file(LOCAL_MALWARE_UUID)
+      result = @client.process_file(path)
+
+      assert @client.delete(result.id)
+
+      assert_raises(Scanii::Error) { @client.retrieve(result.id) }
+      refute_nil @client.retrieve_trace(result.id),
+                 "trace must survive deletion of the result"
+    ensure
+      cleanup(path)
+    end
+
+    def test_delete_trace_removes_trace_and_leaves_result
+      path = temp_file(LOCAL_MALWARE_UUID)
+      result = @client.process_file(path)
+
+      assert @client.delete_trace(result.id)
+
+      assert_nil @client.retrieve_trace(result.id)
+      assert_equal result.id, @client.retrieve(result.id).id,
+                   "result must survive deletion of the trace"
+    ensure
+      cleanup(path)
+    end
+
+    def test_repeated_delete_raises
+      path = temp_file(LOCAL_MALWARE_UUID)
+      result = @client.process_file(path)
+      assert @client.delete(result.id)
+      assert_raises(Scanii::Error) { @client.delete(result.id) }
+    ensure
+      cleanup(path)
+    end
+
+    def test_delete_unknown_id_raises
+      assert_raises(Scanii::Error) { @client.delete("does-not-exist-delete-#{Process.pid}") }
+    end
+
+    def test_delete_trace_unknown_id_raises
+      assert_raises(Scanii::Error) { @client.delete_trace("does-not-exist-dtrace-#{Process.pid}") }
+    end
+
+    def test_delete_empty_id_raises_argument_error
+      assert_raises(ArgumentError) { @client.delete("") }
+      assert_raises(ArgumentError) { @client.delete_trace("") }
+    end
+
+    # -- process_from_url --------------------------------------------------
 
     def test_process_from_url_returns_result_with_eicar_finding
       url = "#{self.class.endpoint}/static/eicar.txt"

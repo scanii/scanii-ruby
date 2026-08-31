@@ -60,14 +60,20 @@ puts "findings: #{result.findings.inspect}"
 | `process_file(path, metadata:, callback:)` | `POST /files` | `Scanii::ProcessingResult` |
 | `process_async(io, filename:, content_type:, metadata:, callback:)` | `POST /files/async` | `Scanii::PendingResult` |
 | `process_async_file(path, metadata:, callback:)` | `POST /files/async` | `Scanii::PendingResult` |
-| `process_from_url(location, callback:, metadata:)` | `POST /files` | `Scanii::ProcessingResult` (v2.2 preview) |
+| `process_from_url(location, callback:, metadata:)` | `POST /files` | `Scanii::ProcessingResult` |
 | `fetch(url, metadata:, callback:)` | `POST /files/fetch` | `Scanii::PendingResult` |
 | `retrieve(id)` | `GET /files/{id}` | `Scanii::ProcessingResult` |
-| `retrieve_trace(id)` | `GET /files/{id}/trace` | `Scanii::TraceResult` or `nil` (v2.2 preview) |
+| `retrieve_trace(id)` | `GET /files/{id}/trace` | `Scanii::TraceResult` or `nil` |
+| `delete(id)` | `DELETE /files/{id}` | `true` |
+| `delete_trace(id)` | `DELETE /files/{id}/trace` | `true` |
 | `ping` | `GET /ping` | `true` |
 | `create_auth_token(timeout_seconds)` | `POST /auth/tokens` | `Scanii::AuthToken` |
 | `retrieve_auth_token(id)` | `GET /auth/tokens/{id}` | `Scanii::AuthToken` |
 | `delete_auth_token(id)` | `DELETE /auth/tokens/{id}` | `true` |
+
+`delete` and `delete_trace` act on independent resources: deleting a scan result
+leaves its trace readable, and deleting a trace leaves the result readable. To erase
+a scan entirely, call both.
 
 Full API reference: <https://scanii.github.io/openapi/v22/>.
 

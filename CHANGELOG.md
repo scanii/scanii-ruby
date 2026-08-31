@@ -2,6 +2,32 @@
 
 All notable changes to `scanii-ruby` are documented here. Versions follow [SemVer](https://semver.org).
 
+## [1.4.0] — split result and trace deletion
+
+### Added
+
+- `Scanii::Client#delete(id)` — deletes a previously processed file result
+  (`DELETE /files/{id}`). Returns `true` on 204; the processing trace is left intact.
+- `Scanii::Client#delete_trace(id)` — deletes the processing trace separately
+  (`DELETE /files/{id}/trace`). Returns `true` on 204; the processing result is left intact.
+
+  The two resources are independent: deleting one does not remove the other.
+  To erase a scan entirely, call both.
+
+### Changed
+
+- Dropped the "v2.2 preview" designation from `retrieve_trace` and `process_from_url`
+  in the README and RDoc. Neither is marked preview in the API contract; the methods
+  themselves are unchanged.
+
+### Fixed
+
+- Path segments are now encoded with `URI.encode_uri_component` rather than
+  `URI.encode_www_form_component`, which rendered a space as `+`. Inside a path a
+  `+` is a literal plus, so an id containing a space reached the server corrupted.
+  Affects every id-taking method. Scanii-issued ids are hex, so this was not
+  reachable in practice with server-generated ids.
+
 ## [1.3.1] — dependency refresh
 
 ### Changed

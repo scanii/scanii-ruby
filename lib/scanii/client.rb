@@ -202,9 +202,6 @@ module Scanii
     #
     # Returns nil when no trace exists for the given id (HTTP 404).
     #
-    # This is a v2.2 preview surface; the API shape may shift before it is
-    # marked stable.
-    #
     # @param id [String] processing id returned by process or process_file
     # @see https://scanii.github.io/openapi/v22/  GET /files/{id}/trace
     # @return [Scanii::TraceResult, nil]
@@ -218,6 +215,41 @@ module Scanii
       TraceResult.from_response(resp_body, headers)
     end
 
+    # Delete a previously processed file result.
+    #
+    # The processing trace is a separate resource and is *not* removed by this
+    # call — it stays readable via {#retrieve_trace} until you delete it with
+    # {#delete_trace}. To erase a scan entirely, call both.
+    #
+    # @param id [String] processing id returned by {#process} or {#process_file}
+    # @see https://scanii.github.io/openapi/v22/  DELETE /files/{id}
+    # @return [Boolean] true on 204
+    # @raise [Scanii::Error] when no result exists for the id (HTTP 404), which is
+    #   also what a repeated delete of the same id returns
+    def delete(id)
+      raise ArgumentError, "id must not be empty" if id.nil? || id.empty?
+
+      status, resp_body, headers = request("DELETE", "/files/#{url_encode(id)}")
+      raise_for_status(status, resp_body, headers) unless status == 204
+      true
+    end
+
+    # Delete the processing trace for a previously processed file, leaving the
+    # processing result itself untouched.
+    #
+    # @param id [String] processing id returned by {#process} or {#process_file}
+    # @see https://scanii.github.io/openapi/v22/  DELETE /files/{id}/trace
+    # @return [Boolean] true on 204
+    # @raise [Scanii::Error] when no trace exists for the id (HTTP 404), which is
+    #   also what a repeated delete of the same id returns
+    def delete_trace(id)
+      raise ArgumentError, "id must not be empty" if id.nil? || id.empty?
+
+      status, resp_body, headers = request("DELETE", "/files/#{url_encode(id)}/trace")
+      raise_for_status(status, resp_body, headers) unless status == 204
+      true
+    end
+
     # Submit a remote URL for synchronous scanning.
     #
     # Sends the URL as a +location+ field in a multipart/form-data POST to
@@ -227,9 +259,6 @@ module Scanii
     #
     # +location+ must be a String URL. This matches the existing {#fetch}
     # String-URL convention and the Java reference (processFromUrl(String)).
-    #
-    # This is a v2.2 preview surface; the API shape may shift before it is
-    # marked stable.
     #
     # @param location [String] URL of the content to scan
     # @param callback [String, nil] URL to POST the result to on completion
@@ -431,8 +460,11 @@ module Scanii
       body
     end
 
+    # Path-segment encoding. NOT encode_www_form_component, which renders a
+    # space as "+" — correct for form bodies, wrong inside a path, where "+"
+    # is a literal plus and the id would arrive corrupted.
     def url_encode(value)
-      URI.encode_www_form_component(value)
+      URI.encode_uri_component(value)
     end
   end
 end
