@@ -373,6 +373,55 @@ module Scanii
       assert_equal true, @client.delete_auth_token("tok")
     end
 
+    # -- delete / delete_trace ---------------------------------------------
+
+    def test_delete_sends_delete_to_files_path_and_returns_true
+      stub = stub_request(:delete, "#{BASE}/files/abc").to_return(status: 204)
+      assert_equal true, @client.delete("abc")
+      assert_requested(stub)
+    end
+
+    def test_delete_trace_sends_delete_to_trace_path_and_returns_true
+      stub = stub_request(:delete, "#{BASE}/files/abc/trace").to_return(status: 204)
+      assert_equal true, @client.delete_trace("abc")
+      assert_requested(stub)
+    end
+
+    def test_delete_404_raises_scanii_error
+      stub_request(:delete, "#{BASE}/files/missing")
+        .to_return(status: 404, body: { error: "not found" }.to_json)
+      err = assert_raises(Error) { @client.delete("missing") }
+      assert_equal 404, err.status_code
+    end
+
+    def test_delete_trace_404_raises_scanii_error
+      stub_request(:delete, "#{BASE}/files/missing/trace")
+        .to_return(status: 404, body: { error: "no trace" }.to_json)
+      err = assert_raises(Error) { @client.delete_trace("missing") }
+      assert_equal 404, err.status_code
+    end
+
+    # Per the spec a temporary auth token is not privileged to delete.
+    def test_delete_403_raises_auth_error
+      stub_request(:delete, "#{BASE}/files/abc")
+        .to_return(status: 403, body: { error: "forbidden" }.to_json)
+      assert_raises(AuthError) { @client.delete("abc") }
+    end
+
+    def test_delete_trace_403_raises_auth_error
+      stub_request(:delete, "#{BASE}/files/abc/trace")
+        .to_return(status: 403, body: { error: "forbidden" }.to_json)
+      assert_raises(AuthError) { @client.delete_trace("abc") }
+    end
+
+    def test_delete_empty_id_raises_argument_error
+      assert_raises(ArgumentError) { @client.delete("") }
+    end
+
+    def test_delete_trace_empty_id_raises_argument_error
+      assert_raises(ArgumentError) { @client.delete_trace("") }
+    end
+
     # -- transport errors --------------------------------------------------
 
     def test_connection_refused_raises_scanii_error
